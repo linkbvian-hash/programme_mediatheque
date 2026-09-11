@@ -1,9 +1,1 @@
-{
-  "name":"Médiathèque de Port-de-Bouc",
-  "short_name":"Médiathèque",
-  "start_url":"./",
-  "display":"standalone",
-  "background_color":"#f5f1e8",
-  "theme_color":"#142b43",
-  "lang":"fr-FR"
-}
+{"name":"Médiathèque Boris Vian — Port-de-Bouc","short_name":"Médiathèque","start_url":"./","display":"standalone","background_color":"#f5f1e8","theme_color":"#142b43","lang":"fr-FR","icons":[{"src":"assets/logo-boris-vian.png","sizes":"500x166","type":"image/png"}]}
