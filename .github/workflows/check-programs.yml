@@ -1,0 +1,103 @@
+name: Vérifier les programmes
+
+on:
+  schedule:
+    - cron: "15 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vérifier les PDF
+        shell: bash
+        run: |
+          python - <<'PY'
+          import datetime
+          import json
+          import urllib.request
+
+          BASE = "https://www.mediatheque-portdebouc.com/userfiles/file/Fichiers_adultes/Programmes/"
+
+          MONTHS = [
+              "Janvier", "Février", "Mars", "Avril",
+              "Mai", "Juin", "Juillet", "Août",
+              "Septembre", "Octobre", "Novembre", "Décembre"
+          ]
+
+          def check_pdf(date):
+              url = f"{BASE}{date.year}_{date.month:02d}.pdf"
+
+              try:
+                  request = urllib.request.Request(
+                      url,
+                      method="HEAD",
+                      headers={
+                          "User-Agent": "programme-mediatheque-check/1.0"
+                      }
+                  )
+
+                  with urllib.request.urlopen(request, timeout=30) as response:
+                      available = 200 <= response.status < 400
+
+              except Exception:
+                  available = False
+
+              return {
+                  "year": date.year,
+                  "month": date.month,
+                  "label": f"{MONTHS[date.month - 1]} {date.year}",
+                  "url": url,
+                  "available": available
+              }
+
+          today = datetime.date.today()
+
+          current = today.replace(day=1)
+
+          if current.month == 12:
+              next_month = datetime.date(current.year + 1, 1, 1)
+          else:
+              next_month = datetime.date(
+                  current.year,
+                  current.month + 1,
+                  1
+              )
+
+          data = {
+              "current": check_pdf(current),
+              "next": check_pdf(next_month)
+          }
+
+          with open("program.json", "w", encoding="utf-8") as file:
+              json.dump(
+                  data,
+                  file,
+                  ensure_ascii=False,
+                  indent=2
+              )
+              file.write("\n")
+
+          print(json.dumps(data, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Publier si modifié
+        shell: bash
+        run: |
+          git config user.name "programme-mediatheque-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add program.json
+
+          if git diff --cached --quiet; then
+            echo "Aucun changement."
+          else
+            git commit -m "Mise à jour automatique des programmes"
+            git push
+          fi
