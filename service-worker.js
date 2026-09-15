@@ -25,7 +25,7 @@ messaging.onBackgroundMessage(payload=>{
   );
 });
 
-const CACHE="mediatheque-pwa-v7";
+const CACHE="mediatheque-pwa-v8";
 const FILES=["./","./index.html","./style.css","./app.js","./manifest.json","./assets/logo-boris-vian.png"];
 
 self.addEventListener("install",event=>{
@@ -45,7 +45,7 @@ self.addEventListener("activate",event=>{
 
 self.addEventListener("notificationclick",event=>{
   event.notification.close();
-  const url=event.notification.data?.url||self.registration.scope;
+  const url=event.notification.data?.url||event.notification?.data?.link||self.registration.scope;
 
   event.waitUntil(
     clients.matchAll({type:"window",includeUncontrolled:true}).then(list=>{
