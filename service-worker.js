@@ -12,14 +12,23 @@ firebase.initializeApp({
 
 const messaging=firebase.messaging();
 
-const CACHE="mediatheque-pwa-v17";
-const FILES=["./","./index.html","./style.css","./app.js","./manifest.json","./assets/logo-boris-vian.png","./assets/logo-boris-vian-icon-192.png?v=17","./assets/logo-boris-vian-icon-96.webp?v=17","./assets/logo-boris-vian-icon-512.png?v=17"];
+const CACHE="mediatheque-pwa-v18";
+const FILES=[
+  "./",
+  "./index.html",
+  "./install.html",
+  "./style.css",
+  "./app.js",
+  "./manifest.json",
+  "./assets/logo-boris-vian.png",
+  "./assets/logo-boris-vian-icon-192.png?v=18",
+  "./assets/logo-boris-vian-icon-96.png?v=18",
+  "./assets/logo-boris-vian-icon-512.png?v=18"
+];
 
 self.addEventListener("install",event=>{
   self.skipWaiting();
-  event.waitUntil(
-    caches.open(CACHE).then(cache=>cache.addAll(FILES))
-  );
+  event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)));
 });
 
 self.addEventListener("activate",event=>{
