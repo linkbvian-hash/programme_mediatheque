@@ -3,27 +3,36 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="theme-color" content="#f36f21">
+<meta name="theme-color" content="#142b43">
 <meta name="description" content="Installer l'application Médiathèque Boris Vian">
-<link rel="icon" href="./assets/logo-boris-vian-icon-192.png?v=17">
+<link rel="manifest" href="./manifest.json?v=18">
+<link rel="icon" type="image/png" sizes="192x192" href="./assets/logo-boris-vian-icon-192.png?v=18">
 <title>Installer — Médiathèque Boris Vian</title>
 <style>
-*{box-sizing:border-box}body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#111;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;background:#111;color:#fff;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 .card{width:min(520px,100%);padding:34px 26px;text-align:center;border-radius:24px;background:#1d1d1d;box-shadow:0 12px 40px #0008}
-.logo{width:110px;height:110px;object-fit:contain;border-radius:50%;margin:0 auto 18px;background:#fff;padding:10px}
-h1{font-size:25px;margin:0 0 8px}p{color:#ccc;line-height:1.5;margin:8px 0 22px}
+.logo-circle{width:120px;height:120px;border-radius:50%;margin:0 auto 18px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.logo{display:block;width:96px;height:96px;object-fit:contain;object-position:center}
+h1{font-size:25px;margin:0 0 8px}
+p{color:#ccc;line-height:1.5;margin:8px 0 22px}
 button,a{display:block;width:100%;border:0;border-radius:14px;padding:15px 18px;font-size:17px;font-weight:700;text-decoration:none;cursor:pointer}
-button{background:#f36f21;color:#fff}.secondary{margin-top:12px;background:#333;color:#fff}
+button{background:#f36f21;color:#fff}
+button:disabled{opacity:.65;cursor:default}
+.secondary{margin-top:12px;background:#333;color:#fff}
 #manual{display:none;text-align:left;margin-top:20px;padding:18px;border-radius:16px;background:#292929;color:#ddd;line-height:1.5}
-#manual strong{color:#fff}.ok{display:none;color:#8ee28e;font-weight:600;margin-top:14px}
+#manual strong{color:#fff}
+#ok{display:none;color:#8ee28e;font-weight:600;margin-top:14px}
 </style>
 </head>
 <body>
 <main class="card">
-<img class="logo" src="./assets/logo-boris-vian-icon-192.png?v=17" alt="Médiathèque Boris Vian">
+<div class="logo-circle">
+<img class="logo" src="./assets/logo-boris-vian-icon-192.png?v=18" alt="Médiathèque Boris Vian">
+</div>
 <h1>Médiathèque Boris Vian</h1>
 <p>Installez l'application sur votre téléphone pour retrouver facilement le programme et recevoir les notifications.</p>
-<button id="install">📲 Installer l'application</button>
+<button id="install" type="button">📲 Installer l'application</button>
 <a class="secondary" href="./">Ouvrir le programme</a>
 <div id="manual"><strong>Installation manuelle</strong><br><br>
 Sur Chrome, ouvrez le menu <strong>⋮</strong> puis choisissez <strong>Installer l'application</strong> ou <strong>Ajouter à l'écran d'accueil</strong> selon votre téléphone.
@@ -32,25 +41,43 @@ Sur Chrome, ouvrez le menu <strong>⋮</strong> puis choisissez <strong>Installe
 </main>
 <script>
 let deferredPrompt=null;
-const install=document.getElementById('install');
-const manual=document.getElementById('manual');
-window.addEventListener('beforeinstallprompt',e=>{
- e.preventDefault(); deferredPrompt=e; install.textContent='📲 Installer l'application'; manual.style.display='none';
+const install=document.getElementById("install");
+const manual=document.getElementById("manual");
+const ok=document.getElementById("ok");
+
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"})
+    .catch(e=>console.error("[PWA Service Worker]",e));
+}
+
+window.addEventListener("beforeinstallprompt",e=>{
+  e.preventDefault();
+  deferredPrompt=e;
+  install.disabled=false;
+  install.textContent="📲 Installer l'application";
+  manual.style.display="none";
 });
-install.addEventListener('click',async()=>{
- if(deferredPrompt){
-  deferredPrompt.prompt();
-  const choice=await deferredPrompt.userChoice;
-  if(choice.outcome==='accepted') document.getElementById('ok').style.display='block';
+
+install.addEventListener("click",async()=>{
+  if(deferredPrompt){
+    deferredPrompt.prompt();
+    const choice=await deferredPrompt.userChoice;
+    if(choice.outcome==="accepted"){
+      ok.style.display="block";
+      install.textContent="✅ Application installée";
+    }
+    deferredPrompt=null;
+    return;
+  }
+
+  manual.style.display="block";
+  manual.scrollIntoView({behavior:"smooth",block:"nearest"});
+});
+
+window.addEventListener("appinstalled",()=>{
+  ok.style.display="block";
+  install.textContent="✅ Application installée";
   deferredPrompt=null;
- }else{
-  manual.style.display='block';
-  manual.scrollIntoView({behavior:'smooth',block:'nearest'});
- }
-});
-window.addEventListener('appinstalled',()=>{
- document.getElementById('ok').style.display='block';
- install.textContent='✅ Application installée';
 });
 </script>
 </body>
