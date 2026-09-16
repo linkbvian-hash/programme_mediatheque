@@ -107,168 +107,168 @@ jobs:
           npm install --no-save --no-package-lock firebase-admin@14
 
           node <<'NODE'
-(async () => {
-          const fs = require("fs");
-          const { initializeApp, cert } = require("firebase-admin/app");
-          const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-          const { getMessaging } = require("firebase-admin/messaging");
-
-          const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-          initializeApp({ credential: cert(serviceAccount) });
-
-          const db = getFirestore();
-          const messaging = getMessaging();
-
-          const current = JSON.parse(fs.readFileSync("program.json", "utf8"));
-
-          let previous = { current: {}, next: {} };
-          try {
-            const raw = require("child_process")
-              .execFileSync("git", ["show", "HEAD:program.json"], { encoding: "utf8" });
-            previous = JSON.parse(raw);
-          } catch {
-            console.log("Pas de program.json précédent exploitable.");
-          }
-
-          const testMode = process.env.TEST_NOTIFICATION === "true";
-
-          function becameAvailable(oldItem, newItem) {
-            return Boolean(newItem?.available) &&
-              (!oldItem?.available || oldItem?.url !== newItem?.url);
-          }
-
-          let candidate = null;
-
-          if (becameAvailable(previous.current, current.current)) {
-            candidate = current.current;
-          } else if (becameAvailable(previous.next, current.next)) {
-            candidate = current.next;
-          }
-
-          const siteUrl = "https://linkbvian-hash.github.io/programme_mediatheque/";
-
-          if (testMode) {
-            candidate = {
-              label: "Test des notifications",
-              url: siteUrl,
-              test: true
-            };
-            console.log("Mode test activé.");
-          }
-
-          if (!candidate) {
-            console.log("Aucun nouveau programme détecté. Aucune notification envoyée.");
-            process.exit(0);
-          }
-
-          const notificationId = Buffer.from(
-            candidate.test ? "test-" + Date.now() : candidate.url
-          ).toString("base64url");
-
-          const stateRef = db.collection("sent_notifications").doc(notificationId);
-
-          if (!candidate.test) {
-            const state = await stateRef.get();
-            if (state.exists) {
-              console.log("Notification déjà envoyée pour " + candidate.url);
-              process.exit(0);
-            }
-          }
-
-          const snapshot = await db.collection("subscribers").get();
-          const subscriptions = [];
-
-          snapshot.forEach(doc => {
-            const data = doc.data();
-            if (typeof data.token === "string" && data.token.length > 0) {
-              subscriptions.push({ id: doc.id, token: data.token });
-            }
-          });
-
-          if (subscriptions.length === 0) {
-            console.log("Aucun appareil abonné.");
-            process.exit(0);
-          }
-
-          console.log(`Envoi vers ${subscriptions.length} appareil(s)...`);
-
-          const title = candidate.test
-            ? "🔔 Test des notifications"
-            : "📚 Nouveau programme disponible";
-
-          const body = candidate.test
-            ? "Si tu reçois cette notification, tout fonctionne !"
-            : `${candidate.label} est maintenant disponible.`;
-
-          const link = candidate.url || siteUrl;
-          let successCount = 0;
-          let failureCount = 0;
-
-          for (let i = 0; i < subscriptions.length; i += 500) {
-            const batch = subscriptions.slice(i, i + 500);
-
-            const messages = batch.map(item => ({
-              token: item.token,
-              notification: {
-                title,
-                body
-              },
-              webpush: {
-                notification: {
-                  icon: `${siteUrl}assets/logo-boris-vian.png`
-                },
-                fcmOptions: {
-                  link
-                }
-              }
-            }));
-
-            const response = await messaging.sendEach(messages);
-
-            successCount += response.successCount;
-            failureCount += response.failureCount;
-
-            for (let j = 0; j < response.responses.length; j++) {
-              const result = response.responses[j];
-
-              if (!result.success) {
-                const code = result.error?.code || "unknown";
-                const message = result.error?.message || "aucun détail";
-                console.log(`Échec ${batch[j].id}: ${code} — ${message}`);
-
-                if (
-                  code === "messaging/registration-token-not-registered" ||
-                  code === "messaging/invalid-registration-token"
-                ) {
-                  await db.collection("subscribers").doc(batch[j].id).delete();
-                  console.log(`Abonnement invalide supprimé: ${batch[j].id}`);
-                }
-              }
-            }
-          }
-
-          console.log(`Notifications envoyées: ${successCount}, échecs: ${failureCount}`);
-
-          if (successCount > 0 && !candidate.test) {
-            await stateRef.set({
-              url: candidate.url,
-              label: candidate.label,
-              sentAt: FieldValue.serverTimestamp(),
-              successCount,
-              failureCount
-            });
-            console.log("Notification enregistrée pour éviter les doublons.");
-          }
-
-          if (successCount === 0) {
-            process.exit(1);
-          }
+          (async () => {
+                    const fs = require("fs");
+                    const { initializeApp, cert } = require("firebase-admin/app");
+                    const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+                    const { getMessaging } = require("firebase-admin/messaging");
           
-})().catch(error => {
-  console.error(error);
-  process.exit(1);
-});
-NODE
+                    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+                    initializeApp({ credential: cert(serviceAccount) });
+          
+                    const db = getFirestore();
+                    const messaging = getMessaging();
+          
+                    const current = JSON.parse(fs.readFileSync("program.json", "utf8"));
+          
+                    let previous = { current: {}, next: {} };
+                    try {
+                      const raw = require("child_process")
+                        .execFileSync("git", ["show", "HEAD:program.json"], { encoding: "utf8" });
+                      previous = JSON.parse(raw);
+                    } catch {
+                      console.log("Pas de program.json précédent exploitable.");
+                    }
+          
+                    const testMode = process.env.TEST_NOTIFICATION === "true";
+          
+                    function becameAvailable(oldItem, newItem) {
+                      return Boolean(newItem?.available) &&
+                        (!oldItem?.available || oldItem?.url !== newItem?.url);
+                    }
+          
+                    let candidate = null;
+          
+                    if (becameAvailable(previous.current, current.current)) {
+                      candidate = current.current;
+                    } else if (becameAvailable(previous.next, current.next)) {
+                      candidate = current.next;
+                    }
+          
+                    const siteUrl = "https://linkbvian-hash.github.io/programme_mediatheque/";
+          
+                    if (testMode) {
+                      candidate = {
+                        label: "Test des notifications",
+                        url: siteUrl,
+                        test: true
+                      };
+                      console.log("Mode test activé.");
+                    }
+          
+                    if (!candidate) {
+                      console.log("Aucun nouveau programme détecté. Aucune notification envoyée.");
+                      process.exit(0);
+                    }
+          
+                    const notificationId = Buffer.from(
+                      candidate.test ? "test-" + Date.now() : candidate.url
+                    ).toString("base64url");
+          
+                    const stateRef = db.collection("sent_notifications").doc(notificationId);
+          
+                    if (!candidate.test) {
+                      const state = await stateRef.get();
+                      if (state.exists) {
+                        console.log("Notification déjà envoyée pour " + candidate.url);
+                        process.exit(0);
+                      }
+                    }
+          
+                    const snapshot = await db.collection("subscribers").get();
+                    const subscriptions = [];
+          
+                    snapshot.forEach(doc => {
+                      const data = doc.data();
+                      if (typeof data.token === "string" && data.token.length > 0) {
+                        subscriptions.push({ id: doc.id, token: data.token });
+                      }
+                    });
+          
+                    if (subscriptions.length === 0) {
+                      console.log("Aucun appareil abonné.");
+                      process.exit(0);
+                    }
+          
+                    console.log(`Envoi vers ${subscriptions.length} appareil(s)...`);
+          
+                    const title = candidate.test
+                      ? "🔔 Test des notifications"
+                      : "📚 Nouveau programme disponible";
+          
+                    const body = candidate.test
+                      ? "Si tu reçois cette notification, tout fonctionne !"
+                      : `${candidate.label} est maintenant disponible.`;
+          
+                    const link = candidate.url || siteUrl;
+                    let successCount = 0;
+                    let failureCount = 0;
+          
+                    for (let i = 0; i < subscriptions.length; i += 500) {
+                      const batch = subscriptions.slice(i, i + 500);
+          
+                      const messages = batch.map(item => ({
+                        token: item.token,
+                        notification: {
+                          title,
+                          body
+                        },
+                        webpush: {
+                          notification: {
+                            icon: `${siteUrl}assets/logo-boris-vian.png`
+                          },
+                          fcmOptions: {
+                            link
+                          }
+                        }
+                      }));
+          
+                      const response = await messaging.sendEach(messages);
+          
+                      successCount += response.successCount;
+                      failureCount += response.failureCount;
+          
+                      for (let j = 0; j < response.responses.length; j++) {
+                        const result = response.responses[j];
+          
+                        if (!result.success) {
+                          const code = result.error?.code || "unknown";
+                          const message = result.error?.message || "aucun détail";
+                          console.log(`Échec ${batch[j].id}: ${code} — ${message}`);
+          
+                          if (
+                            code === "messaging/registration-token-not-registered" ||
+                            code === "messaging/invalid-registration-token"
+                          ) {
+                            await db.collection("subscribers").doc(batch[j].id).delete();
+                            console.log(`Abonnement invalide supprimé: ${batch[j].id}`);
+                          }
+                        }
+                      }
+                    }
+          
+                    console.log(`Notifications envoyées: ${successCount}, échecs: ${failureCount}`);
+          
+                    if (successCount > 0 && !candidate.test) {
+                      await stateRef.set({
+                        url: candidate.url,
+                        label: candidate.label,
+                        sentAt: FieldValue.serverTimestamp(),
+                        successCount,
+                        failureCount
+                      });
+                      console.log("Notification enregistrée pour éviter les doublons.");
+                    }
+          
+                    if (successCount === 0) {
+                      process.exit(1);
+                    }
+                    
+          })().catch(error => {
+            console.error(error);
+            process.exit(1);
+          });
+          NODE
 
       - name: Publier si modifié
         shell: bash
