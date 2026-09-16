@@ -12,7 +12,7 @@ firebase.initializeApp({
 
 const messaging=firebase.messaging();
 
-const CACHE="mediatheque-pwa-v10";
+const CACHE="mediatheque-pwa-v11";
 const FILES=["./","./index.html","./style.css","./app.js","./manifest.json","./assets/logo-boris-vian.png","./assets/logo-boris-vian-icon-192.png"];
 
 self.addEventListener("install",event=>{
