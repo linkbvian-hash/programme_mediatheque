@@ -12,8 +12,8 @@ firebase.initializeApp({
 
 const messaging=firebase.messaging();
 
-const CACHE="mediatheque-pwa-v9";
-const FILES=["./","./index.html","./style.css","./app.js","./manifest.json","./assets/logo-boris-vian.png"];
+const CACHE="mediatheque-pwa-v10";
+const FILES=["./","./index.html","./style.css","./app.js","./manifest.json","./assets/logo-boris-vian.png","./assets/logo-boris-vian-icon-192.png"];
 
 self.addEventListener("install",event=>{
   self.skipWaiting();
@@ -37,7 +37,6 @@ self.addEventListener("fetch",event=>{
   if(url.origin!==location.origin)return;
   if(url.pathname.endsWith("/program.json"))return;
 
-  // Network first for the PWA files so installed devices actually update.
   event.respondWith(
     fetch(request).then(response=>{
       if(request.method==="GET"){
