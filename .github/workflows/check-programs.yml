@@ -215,7 +215,7 @@ jobs:
                         },
                         webpush: {
                           notification: {
-                            icon: `${siteUrl}assets/logo-boris-vian.png`
+                            icon: `${siteUrl}assets/logo-boris-vian-icon-192.png`
                           },
                           fcmOptions: {
                             link
