@@ -206,24 +206,23 @@ jobs:
           for (let i = 0; i < subscriptions.length; i += 500) {
             const batch = subscriptions.slice(i, i + 500);
 
-            const message = {
-              tokens: batch.map(item => item.token),
+            const messages = batch.map(item => ({
+              token: item.token,
               notification: {
                 title,
                 body
               },
               webpush: {
                 notification: {
-                  icon: `${siteUrl}assets/logo-boris-vian.png`,
-                  badge: `${siteUrl}assets/logo-boris-vian.png`
+                  icon: `${siteUrl}assets/logo-boris-vian.png`
                 },
                 fcmOptions: {
                   link
                 }
               }
-            };
+            }));
 
-            const response = await messaging.sendEachForMulticast(message);
+            const response = await messaging.sendEach(messages);
 
             successCount += response.successCount;
             failureCount += response.failureCount;
@@ -233,7 +232,8 @@ jobs:
 
               if (!result.success) {
                 const code = result.error?.code || "unknown";
-                console.log(`Échec ${batch[j].id}: ${code}`);
+                const message = result.error?.message || "aucun détail";
+                console.log(`Échec ${batch[j].id}: ${code} — ${message}`);
 
                 if (
                   code === "messaging/registration-token-not-registered" ||
