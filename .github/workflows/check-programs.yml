@@ -130,7 +130,7 @@ jobs:
                       console.log("Pas de program.json précédent exploitable.");
                     }
           
-                    const testMode = true; // TEST TEMPORAIRE
+                    const testMode = process.env.TEST_NOTIFICATION === "true";
           
                     function becameAvailable(oldItem, newItem) {
                       return Boolean(newItem?.available) &&
