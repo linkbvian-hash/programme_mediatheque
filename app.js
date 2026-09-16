@@ -105,7 +105,7 @@ async function setupNotifications(){
       if(Notification.permission==="granted"){
         new Notification(n.title||"Médiathèque Boris Vian",{
           body:n.body||"Un nouveau programme est disponible.",
-          icon:"./assets/logo-boris-vian-icon-192.webp?v=16"
+          icon:"./assets/logo-boris-vian-icon-192.png?v=18"
         });
       }
     });
