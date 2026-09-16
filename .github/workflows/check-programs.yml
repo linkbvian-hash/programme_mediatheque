@@ -107,6 +107,7 @@ jobs:
           npm install --no-save --no-package-lock firebase-admin@14
 
           node <<'NODE'
+(async () => {
           const fs = require("fs");
           const { initializeApp, cert } = require("firebase-admin/app");
           const { getFirestore, FieldValue } = require("firebase-admin/firestore");
@@ -262,7 +263,11 @@ jobs:
           if (successCount === 0) {
             process.exit(1);
           }
-          NODE
+          
+})().catch(error => {
+  console.error(error);
+  process.exit(1);
+});NODE
 
       - name: Publier si modifié
         shell: bash
