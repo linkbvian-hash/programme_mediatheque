@@ -5,7 +5,8 @@
 <p id="notificationStatus">Activez les notifications pour être prévenu lorsqu’un nouveau programme est disponible.</p>
 <button id="notificationButton" class="secondary-button" type="button">Activer les notifications</button>
 </div>
-</section><section class="info"><div class="info-icon">↻</div><div><strong>Mise à jour automatique</strong><p>Le système vérifie chaque jour si le prochain programme a été publié. Les PDF restent hébergés sur le site de la médiathèque.</p></div></section></main><footer>© Médiathèque Boris Vian — Port-de-Bouc</footer><script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+</section><section class="info"><div class="info-icon">↻</div><div><strong>Mise à jour automatique</strong><p>Le système vérifie chaque jour si le prochain programme a été publié. Les PDF restent hébergés sur le site de la médiathèque.</p></div></section></main><footer>© Médiathèque Boris Vian — Port-de-Bouc</footer><script>if("serviceWorker" in navigator){window.pwaServiceWorkerRegistration=navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).catch(e=>console.error("[PWA Service Worker]",e));}</script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
