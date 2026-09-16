@@ -1,7 +1,7 @@
 const BASE="https://www.mediatheque-portdebouc.com/userfiles/file/Fichiers_adultes/Programmes/";
 const M=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
-function local(d){return{year:d.getFullYear(),month:d.getMonth()+1,label:`${M[d.getMonth()]} ${d.getFullYear()}`,url:`${BASE}${d.getFullYear()}_${String(d.getMonth()+1).padStart(2,"0")}.pdf`}}
+function local(d){return{year:d.getFullYear(),month:d.getMonth()+1,label:M[d.getMonth()]+" "+d.getFullYear(),url:BASE+d.getFullYear()+"_"+String(d.getMonth()+1).padStart(2,"0")+".pdf"}}
 
 function render(p){
   let c=p.current;
@@ -59,7 +59,6 @@ async function setupNotifications(){
 
     const messaging=firebase.messaging();
 
-    // Force the browser to check for the newest service worker.
     const registration=await navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"});
     await registration.update();
 
@@ -106,7 +105,7 @@ async function setupNotifications(){
       if(Notification.permission==="granted"){
         new Notification(n.title||"Médiathèque Boris Vian",{
           body:n.body||"Un nouveau programme est disponible.",
-          icon:"./assets/logo-boris-vian.png"
+          icon:"./assets/logo-boris-vian-icon-192.png"
         });
       }
     });
