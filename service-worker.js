@@ -12,20 +12,7 @@ firebase.initializeApp({
 
 const messaging=firebase.messaging();
 
-messaging.onBackgroundMessage(payload=>{
-  const n=payload.notification||{};
-  self.registration.showNotification(
-    n.title||"Médiathèque Boris Vian",
-    {
-      body:n.body||"Un nouveau programme est disponible.",
-      icon:"./assets/logo-boris-vian.png",
-      badge:"./assets/logo-boris-vian.png",
-      data:{url:n.click_action||self.registration.scope}
-    }
-  );
-});
-
-const CACHE="mediatheque-pwa-v8";
+const CACHE="mediatheque-pwa-v9";
 const FILES=["./","./index.html","./style.css","./app.js","./manifest.json","./assets/logo-boris-vian.png"];
 
 self.addEventListener("install",event=>{
@@ -40,23 +27,6 @@ self.addEventListener("activate",event=>{
     caches.keys().then(keys=>Promise.all(
       keys.filter(k=>k!==CACHE).map(k=>caches.delete(k))
     )).then(()=>self.clients.claim())
-  );
-});
-
-self.addEventListener("notificationclick",event=>{
-  event.notification.close();
-  const url=event.notification.data?.url||event.notification?.data?.link||self.registration.scope;
-
-  event.waitUntil(
-    clients.matchAll({type:"window",includeUncontrolled:true}).then(list=>{
-      for(const client of list){
-        if("focus"in client){
-          client.navigate(url);
-          return client.focus();
-        }
-      }
-      return clients.openWindow(url);
-    })
   );
 });
 
