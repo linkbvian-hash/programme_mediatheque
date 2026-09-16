@@ -12,8 +12,8 @@ firebase.initializeApp({
 
 const messaging=firebase.messaging();
 
-const CACHE="mediatheque-pwa-v13";
-const FILES=["./","./index.html","./style.css","./app.js","./manifest.json","./assets/logo-boris-vian.png","./assets/logo-boris-vian-icon-192.webp","./assets/logo-boris-vian-icon-96.webp"];
+const CACHE="mediatheque-pwa-v14";
+const FILES=["./","./index.html","./style.css","./app.js","./manifest.json","./assets/logo-boris-vian.png","./assets/logo-boris-vian-icon-192.webp?v=14","./assets/logo-boris-vian-icon-96.webp?v=14"];
 
 self.addEventListener("install",event=>{
   self.skipWaiting();
