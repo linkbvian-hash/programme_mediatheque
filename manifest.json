@@ -9,13 +9,13 @@
   "lang": "fr-FR",
   "icons": [
     {
-      "src": "assets/logo-boris-vian-icon-96.webp",
+      "src": "assets/logo-boris-vian-icon-96.webp?v=14",
       "sizes": "96x96",
       "type": "image/webp",
       "purpose": "any"
     },
     {
-      "src": "assets/logo-boris-vian-icon-192.webp",
+      "src": "assets/logo-boris-vian-icon-192.webp?v=14",
       "sizes": "192x192",
       "type": "image/webp",
       "purpose": "any"
