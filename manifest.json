@@ -29,5 +29,11 @@
     }
   ],
   "description": "Programme de la Médiathèque Boris Vian de Port-de-Bouc",
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "related_applications": [
+    {
+      "platform": "webapp",
+      "id": "./"
+    }
+  ]
 }
