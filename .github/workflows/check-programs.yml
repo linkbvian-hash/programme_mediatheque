@@ -3,6 +3,9 @@ name: Vérifier les programmes
 on:
   schedule:
     - cron: "15 7 * * *"
+  push:
+    paths:
+      - "programmes/*.pdf"
   workflow_dispatch:
     inputs:
       test_notification:
@@ -21,16 +24,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Vérifier les PDF
+      - name: Vérifier les PDF du dépôt
         shell: bash
         run: |
           python - <<'PY'
           import datetime
           import json
-          import urllib.request
-
-          WIDGET_URL = "https://www.mediatheque-portdebouc.com/widget/render-all/profile_id/1/widget_id/20"
-          PDF_BASE = "https://www.mediatheque-portdebouc.com/userfiles/file/Fichiers_adultes/Programmes/"
+          from pathlib import Path
 
           MONTHS = [
               "Janvier", "Février", "Mars", "Avril",
@@ -38,187 +38,34 @@ jobs:
               "Septembre", "Octobre", "Novembre", "Décembre"
           ]
 
-          import re
-          from html.parser import HTMLParser
-          from urllib.parse import urljoin
-          import unicodedata
+          PROGRAMS = Path("programmes")
 
-          class LinkParser(HTMLParser):
-              def __init__(self):
-                  super().__init__()
-                  self.links = []
-                  self._current = None
-
-              def handle_starttag(self, tag, attrs):
-                  attrs = dict(attrs)
-                  tag = tag.lower()
-
-                  if tag == "a":
-                      self._current = {"href": attrs.get("href"), "text": []}
-                  elif tag in ("iframe", "embed"):
-                      src = attrs.get("src")
-                      if src:
-                          self.links.append({"href": src, "text": ""})
-                  elif tag == "object":
-                      data = attrs.get("data")
-                      if data:
-                          self.links.append({"href": data, "text": ""})
-
-              def handle_data(self, data):
-                  if self._current is not None:
-                      self._current["text"].append(data)
-
-              def handle_endtag(self, tag):
-                  if tag.lower() == "a" and self._current is not None:
-                      self._current["text"] = " ".join(self._current["text"]).strip()
-                      self.links.append(self._current)
-                      self._current = None
-
-          def normalize(value):
-              value = unicodedata.normalize("NFD", value or "")
-              value = "".join(c for c in value if unicodedata.category(c) != "Mn")
-              return value.lower()
-
-          def fetch_page(url):
-              request = urllib.request.Request(
-                  url,
-                  headers={"User-Agent": "programme-mediatheque-check/3.0"}
-              )
-              with urllib.request.urlopen(request, timeout=30) as response:
-                  return response.read().decode("utf-8", errors="replace")
-
-          def fetch_links(url):
-              parser = LinkParser()
-              parser.feed(fetch_page(url))
-              return parser.links
-
-          def verify_pdf(url):
-              try:
-                  request = urllib.request.Request(
-                      url,
-                      headers={
-                          "User-Agent": "programme-mediatheque-check/3.0",
-                          "Range": "bytes=0-1023"
-                      }
-                  )
-                  with urllib.request.urlopen(request, timeout=30) as response:
-                      if not (200 <= response.status < 400):
-                          return False
-                      content_type = (response.headers.get("Content-Type") or "").lower()
-                      first_bytes = response.read(1024)
-                      return (
-                          "pdf" in content_type
-                          or first_bytes.startswith(b"%PDF")
-                          or ".pdf" in url.lower().split("?")[0]
-                      )
-              except Exception:
-                  return False
-
-          def find_pdf_in_article(article_url, label):
-              try:
-                  article_links = fetch_links(article_url)
-              except Exception as error:
-                  print(f"Impossible de lire l'article {article_url}: {error}")
-                  return None
-
-              candidates = []
-              target = normalize(label)
-
-              for link in article_links:
-                  href = link.get("href")
-                  if not href:
-                      continue
-
-                  absolute = urljoin(article_url, href)
-                  text = normalize(link.get("text", ""))
-                  haystack = f"{text} {normalize(absolute)}"
-
-                  score = 0
-                  if ".pdf" in normalize(absolute):
-                      score += 100
-                  if "pdf" in text:
-                      score += 60
-                  if "telecharg" in haystack or "download" in haystack:
-                      score += 30
-                  if target in haystack:
-                      score += 20
-
-                  if score >= 60:
-                      candidates.append((score, absolute))
-
-              candidates.sort(reverse=True)
-
-              seen = set()
-              for _, url in candidates:
-                  if url in seen:
-                      continue
-                  seen.add(url)
-                  if verify_pdf(url):
-                      return url
-
-              return None
-
-          def find_program(date, links):
-              month = normalize(MONTHS[date.month - 1])
+          def month_data(date):
+              filename = f"{date.year}_{date.month:02d}.pdf"
+              path = PROGRAMS / filename
               label = f"{MONTHS[date.month - 1]} {date.year}"
-              target = normalize(label)
 
-              # La page "PROGRAMME DU MOIS" ne contient pas directement le PDF :
-              # elle pointe vers un article CMS (ex. /cms/articleview/id/668).
-              # On identifie d'abord cet article grâce à son titre, puis on
-              # cherche le vrai PDF à l'intérieur de l'article.
-              candidates = []
+              available = False
+              if path.is_file():
+                  try:
+                      with path.open("rb") as file:
+                          available = file.read(5) == b"%PDF-"
+                  except OSError:
+                      available = False
 
-              for link in links:
-                  href = link.get("href")
-                  if not href:
-                      continue
+              if available:
+                  url = f"./programmes/{filename}"
+                  print(f"Programme trouvé dans GitHub: {label} -> {url}")
+              else:
+                  url = ""
+                  print(f"Programme absent: {label} -> {filename}")
 
-                  absolute = urljoin(WIDGET_URL, href)
-                  text = normalize(link.get("text", ""))
-                  haystack = f"{text} {normalize(absolute)}"
-
-                  score = 0
-                  if target in haystack:
-                      score += 100
-                  if str(date.year) in haystack:
-                      score += 30
-                  if month in haystack:
-                      score += 30
-
-                  if score >= 60:
-                      candidates.append((score, absolute))
-
-              candidates.sort(reverse=True)
-
-              seen = set()
-              for _, article_url in candidates:
-                  if article_url in seen:
-                      continue
-                  seen.add(article_url)
-
-                  if verify_pdf(article_url):
-                      pdf_url = article_url
-                  else:
-                      pdf_url = find_pdf_in_article(article_url, label)
-
-                  if pdf_url:
-                      print(f"Programme trouvé: {label} -> {pdf_url}")
-                      return {
-                          "year": date.year,
-                          "month": date.month,
-                          "label": label,
-                          "url": pdf_url,
-                          "available": True
-                      }
-
-              print(f"Programme non trouvé: {label}")
               return {
                   "year": date.year,
                   "month": date.month,
                   "label": label,
-                  "url": "",
-                  "available": False
+                  "url": url,
+                  "available": available
               }
 
           today = datetime.date.today()
@@ -229,63 +76,13 @@ jobs:
           else:
               next_month = datetime.date(current.year, current.month + 1, 1)
 
-          def direct_pdf(date):
-              filename = f"{date.year}_{date.month:02d}.pdf"
-              url = urljoin(PDF_BASE, filename)
-              if verify_pdf(url):
-                  label = f"{MONTHS[date.month - 1]} {date.year}"
-                  print(f"Programme trouvé directement: {label} -> {url}")
-                  return {
-                      "year": date.year,
-                      "month": date.month,
-                      "label": label,
-                      "url": url,
-                      "available": True
-                  }
-
-              label = f"{MONTHS[date.month - 1]} {date.year}"
-              print(f"PDF direct absent: {label} -> {url}")
-              return {
-                  "year": date.year,
-                  "month": date.month,
-                  "label": label,
-                  "url": "",
-                  "available": False
-              }
-
-          # Le serveur du site peut refuser les requêtes venant de GitHub
-          # sur la page HTML du widget. On privilégie donc le nommage officiel
-          # des PDF, puis on ne consulte le widget qu'en secours.
-          current_data = direct_pdf(current)
-          next_data = direct_pdf(next_month)
-
-          if not current_data["available"] or not next_data["available"]:
-              try:
-                  html = fetch_page(WIDGET_URL)
-                  parser = LinkParser()
-                  parser.feed(html)
-                  links = parser.links
-                  print(f"Liens trouvés sur la page des programmes: {len(links)}")
-
-                  if not current_data["available"]:
-                      current_data = find_program(current, links)
-                  if not next_data["available"]:
-                      next_data = find_program(next_month, links)
-              except Exception as error:
-                  print(f"Page des programmes inaccessible (secours): {error}")
-
           data = {
-              "current": current_data,
-              "next": next_data
+              "current": month_data(current),
+              "next": month_data(next_month)
           }
 
           with open("program.json", "w", encoding="utf-8") as file:
-              json.dump(
-                  data,
-                  file,
-                  ensure_ascii=False,
-                  indent=2
-              )
+              json.dump(data, file, ensure_ascii=False, indent=2)
               file.write("\n")
 
           print(json.dumps(data, ensure_ascii=False, indent=2))
@@ -307,169 +104,171 @@ jobs:
 
           node <<'NODE'
           (async () => {
-                    const fs = require("fs");
-                    const { initializeApp, cert } = require("firebase-admin/app");
-                    const { getFirestore, FieldValue } = require("firebase-admin/firestore");
-                    const { getMessaging } = require("firebase-admin/messaging");
-          
-                    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-                    initializeApp({ credential: cert(serviceAccount) });
-          
-                    const db = getFirestore();
-                    const messaging = getMessaging();
-          
-                    const current = JSON.parse(fs.readFileSync("program.json", "utf8"));
-          
-                    let previous = { current: {}, next: {} };
-                    try {
-                      const raw = require("child_process")
-                        .execFileSync("git", ["show", "HEAD:program.json"], { encoding: "utf8" });
-                      previous = JSON.parse(raw);
-                    } catch {
-                      console.log("Pas de program.json précédent exploitable.");
-                    }
-          
-                    const testMode = process.env.TEST_NOTIFICATION === "true";
-          
-                    function becameAvailable(oldItem, newItem) {
-                      return Boolean(newItem?.available) &&
-                        (!oldItem?.available || oldItem?.url !== newItem?.url);
-                    }
-          
-                    let candidate = null;
-          
-                    if (becameAvailable(previous.current, current.current)) {
-                      candidate = current.current;
-                    } else if (becameAvailable(previous.next, current.next)) {
-                      candidate = current.next;
-                    }
-          
-                    const siteUrl = "https://linkbvian-hash.github.io/programme_mediatheque/";
-          
-                    if (testMode) {
-                      candidate = {
-                        label: "Test des notifications",
-                        url: siteUrl,
-                        test: true
-                      };
-                      console.log("Mode test activé.");
-                    }
-          
-                    if (!candidate) {
-                      console.log("Aucun nouveau programme détecté. Aucune notification envoyée.");
-                      process.exit(0);
-                    }
-          
-                    const notificationId = Buffer.from(
-                      candidate.test ? "test-" + Date.now() : candidate.url
-                    ).toString("base64url");
-          
-                    const stateRef = db.collection("sent_notifications").doc(notificationId);
-          
-                    if (!candidate.test) {
-                      const state = await stateRef.get();
-                      if (state.exists) {
-                        console.log("Notification déjà envoyée pour " + candidate.url);
-                        process.exit(0);
-                      }
-                    }
-          
-                    const snapshot = await db.collection("subscribers").get();
-                    const subscriptions = [];
-          
-                    snapshot.forEach(doc => {
-                      const data = doc.data();
-                      if (typeof data.token === "string" && data.token.length > 0) {
-                        subscriptions.push({ id: doc.id, token: data.token });
-                      }
-                    });
-          
-                    if (subscriptions.length === 0) {
-                      console.log("Aucun appareil abonné.");
-                      process.exit(0);
-                    }
-          
-                    console.log(`Envoi vers ${subscriptions.length} appareil(s)...`);
-          
-                    const title = candidate.test
-                      ? "🔔 Test des notifications"
-                      : "📚 Nouveau programme disponible";
-          
-                    const body = candidate.test
-                      ? "Si tu reçois cette notification, tout fonctionne !"
-                      : `${candidate.label} est maintenant disponible.`;
-          
-                    const link = candidate.url || siteUrl;
-                    let successCount = 0;
-                    let failureCount = 0;
-          
-                    for (let i = 0; i < subscriptions.length; i += 500) {
-                      const batch = subscriptions.slice(i, i + 500);
-          
-                      const messages = batch.map(item => ({
-                        token: item.token,
-                        notification: {
-                          title,
-                          body
-                        },
-                        webpush: {
-                          notification: {
-                            icon: `${siteUrl}assets/logo-boris-vian-icon-192.webp?v=14`
-                          },
-                          fcmOptions: {
-                            link
-                          }
-                        }
-                      }));
-          
-                      const response = await messaging.sendEach(messages);
-          
-                      successCount += response.successCount;
-                      failureCount += response.failureCount;
-          
-                      for (let j = 0; j < response.responses.length; j++) {
-                        const result = response.responses[j];
-          
-                        if (!result.success) {
-                          const code = result.error?.code || "unknown";
-                          const message = result.error?.message || "aucun détail";
-                          console.log(`Échec ${batch[j].id}: ${code} — ${message}`);
-          
-                          if (
-                            code === "messaging/registration-token-not-registered" ||
-                            code === "messaging/invalid-registration-token"
-                          ) {
-                            await db.collection("subscribers").doc(batch[j].id).delete();
-                            console.log(`Abonnement invalide supprimé: ${batch[j].id}`);
-                          }
-                        }
-                      }
-                    }
-          
-                    console.log(`Notifications envoyées: ${successCount}, échecs: ${failureCount}`);
-          
-                    if (successCount > 0 && !candidate.test) {
-                      await stateRef.set({
-                        url: candidate.url,
-                        label: candidate.label,
-                        sentAt: FieldValue.serverTimestamp(),
-                        successCount,
-                        failureCount
-                      });
-                      console.log("Notification enregistrée pour éviter les doublons.");
-                    }
-          
-                    if (successCount === 0) {
-                      process.exit(1);
-                    }
-                    
+            const fs = require("fs");
+            const { initializeApp, cert } = require("firebase-admin/app");
+            const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+            const { getMessaging } = require("firebase-admin/messaging");
+
+            const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+            initializeApp({ credential: cert(serviceAccount) });
+
+            const db = getFirestore();
+            const messaging = getMessaging();
+
+            const current = JSON.parse(fs.readFileSync("program.json", "utf8"));
+
+            let previous = { current: {}, next: {} };
+            try {
+              const raw = require("child_process")
+                .execFileSync("git", ["show", "HEAD:program.json"], { encoding: "utf8" });
+              previous = JSON.parse(raw);
+            } catch {
+              console.log("Pas de program.json précédent exploitable.");
+            }
+
+            const testMode = process.env.TEST_NOTIFICATION === "true";
+
+            function becameAvailable(oldItem, newItem) {
+              return Boolean(newItem?.available) &&
+                (!oldItem?.available || oldItem?.url !== newItem?.url);
+            }
+
+            let candidate = null;
+
+            if (becameAvailable(previous.current, current.current)) {
+              candidate = current.current;
+            } else if (becameAvailable(previous.next, current.next)) {
+              candidate = current.next;
+            }
+
+            const siteUrl = "https://linkbvian-hash.github.io/programme_mediatheque/";
+
+            if (testMode) {
+              candidate = {
+                label: "Test des notifications",
+                url: siteUrl,
+                test: true
+              };
+              console.log("Mode test activé.");
+            }
+
+            if (!candidate) {
+              console.log("Aucun nouveau programme détecté. Aucune notification envoyée.");
+              process.exit(0);
+            }
+
+            const notificationUrl = candidate.test
+              ? siteUrl
+              : new URL(candidate.url.replace(/^\.\//, ""), siteUrl).href;
+
+            const notificationId = Buffer.from(
+              candidate.test ? "test-" + Date.now() : notificationUrl
+            ).toString("base64url");
+
+            const stateRef = db.collection("sent_notifications").doc(notificationId);
+
+            if (!candidate.test) {
+              const state = await stateRef.get();
+              if (state.exists) {
+                console.log("Notification déjà envoyée pour " + notificationUrl);
+                process.exit(0);
+              }
+            }
+
+            const snapshot = await db.collection("subscribers").get();
+            const subscriptions = [];
+
+            snapshot.forEach(doc => {
+              const data = doc.data();
+              if (typeof data.token === "string" && data.token.length > 0) {
+                subscriptions.push({ id: doc.id, token: data.token });
+              }
+            });
+
+            if (subscriptions.length === 0) {
+              console.log("Aucun appareil abonné.");
+              process.exit(0);
+            }
+
+            console.log(`Envoi vers ${subscriptions.length} appareil(s)...`);
+
+            const title = candidate.test
+              ? "🔔 Test des notifications"
+              : "📚 Nouveau programme disponible";
+
+            const body = candidate.test
+              ? "Si tu reçois cette notification, tout fonctionne !"
+              : `${candidate.label} est maintenant disponible.`;
+
+            let successCount = 0;
+            let failureCount = 0;
+
+            for (let i = 0; i < subscriptions.length; i += 500) {
+              const batch = subscriptions.slice(i, i + 500);
+
+              const messages = batch.map(item => ({
+                token: item.token,
+                notification: {
+                  title,
+                  body
+                },
+                webpush: {
+                  notification: {
+                    icon: `${siteUrl}assets/logo-boris-vian-icon-96.png?v=21`
+                  },
+                  fcmOptions: {
+                    link: notificationUrl
+                  }
+                }
+              }));
+
+              const response = await messaging.sendEach(messages);
+
+              successCount += response.successCount;
+              failureCount += response.failureCount;
+
+              for (let j = 0; j < response.responses.length; j++) {
+                const result = response.responses[j];
+
+                if (!result.success) {
+                  const code = result.error?.code || "unknown";
+                  const message = result.error?.message || "aucun détail";
+                  console.log(`Échec ${batch[j].id}: ${code} — ${message}`);
+
+                  if (
+                    code === "messaging/registration-token-not-registered" ||
+                    code === "messaging/invalid-registration-token"
+                  ) {
+                    await db.collection("subscribers").doc(batch[j].id).delete();
+                    console.log(`Abonnement invalide supprimé: ${batch[j].id}`);
+                  }
+                }
+              }
+            }
+
+            console.log(`Notifications envoyées: ${successCount}, échecs: ${failureCount}`);
+
+            if (successCount > 0 && !candidate.test) {
+              await stateRef.set({
+                url: notificationUrl,
+                label: candidate.label,
+                sentAt: FieldValue.serverTimestamp(),
+                successCount,
+                failureCount
+              });
+              console.log("Notification enregistrée pour éviter les doublons.");
+            }
+
+            if (successCount === 0) {
+              process.exit(1);
+            }
           })().catch(error => {
             console.error(error);
             process.exit(1);
           });
           NODE
 
-      - name: Publier si modifié
+      - name: Publier program.json si modifié
         shell: bash
         run: |
           git config user.name "programme-mediatheque-bot"
@@ -480,6 +279,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "Aucun changement."
           else
-            git commit -m "Mise à jour automatique des programmes"
+            git commit -m "Mettre à jour le programme courant"
             git push
           fi
