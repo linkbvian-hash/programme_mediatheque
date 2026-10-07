@@ -3,8 +3,8 @@
     "year": 2026,
     "month": 10,
     "label": "Octobre 2026",
-    "url": "",
-    "available": false
+    "url": "./programmes/2026_10.pdf",
+    "available": true
   },
   "next": {
     "year": 2026,
