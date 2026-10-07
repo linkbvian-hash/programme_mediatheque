@@ -1,35 +1,53 @@
-const BASE="https://www.mediatheque-portdebouc.com/userfiles/file/Fichiers_adultes/Programmes/";
+const BASE="./programmes/";
 const M=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 
-function local(d){return{year:d.getFullYear(),month:d.getMonth()+1,label:M[d.getMonth()]+" "+d.getFullYear(),url:BASE+d.getFullYear()+"_"+String(d.getMonth()+1).padStart(2,"0")+".pdf"}}
+function local(d){
+  const year=d.getFullYear();
+  const month=d.getMonth()+1;
+  return {
+    year,
+    month,
+    label:M[d.getMonth()]+" "+year,
+    url:BASE+year+"_"+String(month).padStart(2,"0")+".pdf"
+  };
+}
 
 function render(p){
-  let c=p.current;
+  const c=p.current;
   document.getElementById("currentTitle").textContent=c.label;
   document.getElementById("currentMonthNumber").textContent=String(c.month).padStart(2,"0");
-  let l=document.getElementById("currentLink"),d=document.getElementById("currentDescription");
-  l.href=c.url;l.hidden=!c.available;
-  d.textContent=c.available?"Le programme actuellement proposé à la médiathèque.":"Le programme de ce mois n'est pas encore disponible.";
-  let n=p.next,card=document.getElementById("nextCard");
+
+  const l=document.getElementById("currentLink");
+  const d=document.getElementById("currentDescription");
+  l.href=c.url;
+  l.hidden=!c.available;
+  d.textContent=c.available
+    ?"Le programme actuellement proposé à la médiathèque."
+    :"Le programme de ce mois n'est pas encore disponible.";
+
+  const n=p.next;
+  const card=document.getElementById("nextCard");
   card.hidden=!(n&&n.available);
+
   if(n&&n.available){
     document.getElementById("nextTitle").textContent=n.label;
     document.getElementById("nextLink").href=n.url;
-    document.getElementById("nextMonthNumber").textContent=String(n.month).padStart(2,"0")
+    document.getElementById("nextMonthNumber").textContent=String(n.month).padStart(2,"0");
   }
 }
 
 async function load(){
   try{
-    let r=await fetch("./program.json?ts="+Date.now(),{cache:"no-store"});
-    if(!r.ok)throw 0;
-    render(await r.json())
+    const r=await fetch("./program.json?ts="+Date.now(),{cache:"no-store"});
+    if(!r.ok)throw new Error("program.json unavailable");
+    render(await r.json());
   }catch(e){
-    let d=new Date(),n=new Date(d.getFullYear(),d.getMonth()+1,1);
+    const d=new Date();
+    const n=new Date(d.getFullYear(),d.getMonth()+1,1);
     render({
-      current:{...local(d),url:"",available:false},
-      next:{...local(n),url:"",available:false}
-    })
+      current:{...local(d),available:false},
+      next:{...local(n),available:false}
+    });
   }
 }
 
@@ -108,7 +126,7 @@ async function setupNotifications(){
       if(Notification.permission==="granted"){
         new Notification(n.title||"Médiathèque Boris Vian",{
           body:n.body||"Un nouveau programme est disponible.",
-          icon:"./assets/logo-boris-vian-icon-96.png?v=20"
+          icon:"./assets/logo-boris-vian-icon-96.png?v=21"
         });
       }
     });
