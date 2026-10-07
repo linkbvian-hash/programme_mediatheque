@@ -30,6 +30,7 @@ jobs:
           import urllib.request
 
           WIDGET_URL = "https://www.mediatheque-portdebouc.com/widget/render-all/profile_id/1/widget_id/20"
+          PDF_BASE = "https://www.mediatheque-portdebouc.com/userfiles/file/Fichiers_adultes/Programmes/"
 
           MONTHS = [
               "Janvier", "Février", "Mars", "Avril",
@@ -228,19 +229,54 @@ jobs:
           else:
               next_month = datetime.date(current.year, current.month + 1, 1)
 
-          try:
-              html = fetch_page(WIDGET_URL)
-              parser = LinkParser()
-              parser.feed(html)
-              links = parser.links
-              print(f"Liens trouvés sur la page des programmes: {len(links)}")
-          except Exception as error:
-              print(f"Impossible de lire la page des programmes: {error}")
-              links = []
+          def direct_pdf(date):
+              filename = f"{date.year}_{date.month:02d}.pdf"
+              url = urljoin(PDF_BASE, filename)
+              if verify_pdf(url):
+                  label = f"{MONTHS[date.month - 1]} {date.year}"
+                  print(f"Programme trouvé directement: {label} -> {url}")
+                  return {
+                      "year": date.year,
+                      "month": date.month,
+                      "label": label,
+                      "url": url,
+                      "available": True
+                  }
+
+              label = f"{MONTHS[date.month - 1]} {date.year}"
+              print(f"PDF direct absent: {label} -> {url}")
+              return {
+                  "year": date.year,
+                  "month": date.month,
+                  "label": label,
+                  "url": "",
+                  "available": False
+              }
+
+          # Le serveur du site peut refuser les requêtes venant de GitHub
+          # sur la page HTML du widget. On privilégie donc le nommage officiel
+          # des PDF, puis on ne consulte le widget qu'en secours.
+          current_data = direct_pdf(current)
+          next_data = direct_pdf(next_month)
+
+          if not current_data["available"] or not next_data["available"]:
+              try:
+                  html = fetch_page(WIDGET_URL)
+                  parser = LinkParser()
+                  parser.feed(html)
+                  links = parser.links
+                  print(f"Liens trouvés sur la page des programmes: {len(links)}")
+
+                  if not current_data["available"]:
+                      current_data = find_program(current, links)
+                  if not next_data["available"]:
+                      next_data = find_program(next_month, links)
+              except Exception as error:
+                  print(f"Page des programmes inaccessible (secours): {error}")
 
           data = {
-              "current": find_program(current, links),
-              "next": find_program(next_month, links)
+              "current": current_data,
+              "next": next_data
           }
 
           with open("program.json", "w", encoding="utf-8") as file:
