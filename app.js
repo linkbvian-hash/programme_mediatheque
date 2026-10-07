@@ -26,7 +26,10 @@ async function load(){
     render(await r.json())
   }catch(e){
     let d=new Date(),n=new Date(d.getFullYear(),d.getMonth()+1,1);
-    render({current:{...local(d),available:true},next:{...local(n),available:false}})
+    render({
+      current:{...local(d),url:"",available:false},
+      next:{...local(n),url:"",available:false}
+    })
   }
 }
 
@@ -105,7 +108,7 @@ async function setupNotifications(){
       if(Notification.permission==="granted"){
         new Notification(n.title||"Médiathèque Boris Vian",{
           body:n.body||"Un nouveau programme est disponible.",
-          icon:"./assets/logo-boris-vian-icon-192.png?v=18"
+          icon:"./assets/logo-boris-vian-icon-96.png?v=20"
         });
       }
     });
