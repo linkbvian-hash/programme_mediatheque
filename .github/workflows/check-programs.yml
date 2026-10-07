@@ -268,17 +268,45 @@ jobs:
           });
           NODE
 
-      - name: Publier program.json si modifié
+      - name: Supprimer les anciens programmes
+        shell: bash
+        run: |
+          python - <<'PY'
+          import datetime
+          import re
+          from pathlib import Path
+
+          current = datetime.date.today().replace(day=1)
+          folder = Path("programmes")
+
+          if not folder.exists():
+              raise SystemExit(0)
+
+          pattern = re.compile(r"^(\\d{4})_(\\d{2})\\.pdf$")
+          for path in folder.glob("*.pdf"):
+              match = pattern.match(path.name)
+              if not match:
+                  continue
+
+              year, month = map(int, match.groups())
+              file_date = datetime.date(year, month, 1)
+
+              if file_date < current:
+                  print(f"Suppression automatique de l'ancien programme: {path}")
+                  path.unlink()
+          PY
+
+      - name: Publier les changements
         shell: bash
         run: |
           git config user.name "programme-mediatheque-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add program.json
+          git add program.json programmes
 
           if git diff --cached --quiet; then
             echo "Aucun changement."
           else
-            git commit -m "Mettre à jour le programme courant"
+            git commit -m "Mettre à jour les programmes"
             git push
           fi
