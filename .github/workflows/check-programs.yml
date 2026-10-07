@@ -29,7 +29,7 @@ jobs:
           import json
           import urllib.request
 
-          BASE = "https://www.mediatheque-portdebouc.com/userfiles/file/Fichiers_adultes/Programmes/"
+          WIDGET_URL = "https://www.mediatheque-portdebouc.com/widget/render-all/profile_id/1/widget_id/20"
 
           MONTHS = [
               "Janvier", "Février", "Mars", "Avril",
@@ -37,30 +37,120 @@ jobs:
               "Septembre", "Octobre", "Novembre", "Décembre"
           ]
 
-          def check_pdf(date):
-              url = f"{BASE}{date.year}_{date.month:02d}.pdf"
+          import re
+          from html.parser import HTMLParser
+          from urllib.parse import urljoin
+          import unicodedata
 
+          class LinkParser(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.links = []
+                  self._current = None
+
+              def handle_starttag(self, tag, attrs):
+                  if tag.lower() == "a":
+                      attrs = dict(attrs)
+                      self._current = {
+                          "href": attrs.get("href"),
+                          "text": []
+                      }
+
+              def handle_data(self, data):
+                  if self._current is not None:
+                      self._current["text"].append(data)
+
+              def handle_endtag(self, tag):
+                  if tag.lower() == "a" and self._current is not None:
+                      self._current["text"] = " ".join(self._current["text"]).strip()
+                      self.links.append(self._current)
+                      self._current = None
+
+          def normalize(value):
+              value = unicodedata.normalize("NFD", value or "")
+              value = "".join(c for c in value if unicodedata.category(c) != "Mn")
+              return value.lower()
+
+          def fetch_page():
+              request = urllib.request.Request(
+                  WIDGET_URL,
+                  headers={"User-Agent": "programme-mediatheque-check/2.0"}
+              )
+              with urllib.request.urlopen(request, timeout=30) as response:
+                  return response.read().decode("utf-8", errors="replace")
+
+          def verify_pdf(url):
               try:
                   request = urllib.request.Request(
                       url,
-                      method="HEAD",
                       headers={
-                          "User-Agent": "programme-mediatheque-check/1.0"
+                          "User-Agent": "programme-mediatheque-check/2.0",
+                          "Range": "bytes=0-1023"
                       }
                   )
-
                   with urllib.request.urlopen(request, timeout=30) as response:
-                      available = 200 <= response.status < 400
-
+                      if not (200 <= response.status < 400):
+                          return False
+                      content_type = (response.headers.get("Content-Type") or "").lower()
+                      first_bytes = response.read(1024)
+                      return (
+                          "pdf" in content_type
+                          or first_bytes.startswith(b"%PDF")
+                          or url.lower().split("?")[0].endswith(".pdf")
+                      )
               except Exception:
-                  available = False
+                  return False
+
+          def find_program(date, links):
+              month = normalize(MONTHS[date.month - 1])
+              label = f"{MONTHS[date.month - 1]} {date.year}"
+              target = normalize(label)
+
+              candidates = []
+              for link in links:
+                  href = link.get("href")
+                  if not href:
+                      continue
+
+                  absolute = urljoin(WIDGET_URL, href)
+                  text = normalize(link.get("text", ""))
+                  haystack = f"{text} {normalize(absolute)}"
+
+                  score = 0
+                  if target in haystack:
+                      score += 100
+                  if str(date.year) in haystack:
+                      score += 30
+                  if month in haystack:
+                      score += 30
+                  if absolute.lower().split("?")[0].endswith(".pdf"):
+                      score += 10
+
+                  if score >= 60:
+                      candidates.append((score, absolute))
+
+              candidates.sort(reverse=True)
+
+              seen = set()
+              for _, url in candidates:
+                  if url in seen:
+                      continue
+                  seen.add(url)
+                  if verify_pdf(url):
+                      return {
+                          "year": date.year,
+                          "month": date.month,
+                          "label": label,
+                          "url": url,
+                          "available": True
+                      }
 
               return {
                   "year": date.year,
                   "month": date.month,
-                  "label": f"{MONTHS[date.month - 1]} {date.year}",
-                  "url": url,
-                  "available": available
+                  "label": label,
+                  "url": "",
+                  "available": False
               }
 
           today = datetime.date.today()
@@ -69,15 +159,21 @@ jobs:
           if current.month == 12:
               next_month = datetime.date(current.year + 1, 1, 1)
           else:
-              next_month = datetime.date(
-                  current.year,
-                  current.month + 1,
-                  1
-              )
+              next_month = datetime.date(current.year, current.month + 1, 1)
+
+          try:
+              html = fetch_page()
+              parser = LinkParser()
+              parser.feed(html)
+              links = parser.links
+              print(f"Liens trouvés sur la page des programmes: {len(links)}")
+          except Exception as error:
+              print(f"Impossible de lire la page des programmes: {error}")
+              links = []
 
           data = {
-              "current": check_pdf(current),
-              "next": check_pdf(next_month)
+              "current": find_program(current, links),
+              "next": find_program(next_month, links)
           }
 
           with open("program.json", "w", encoding="utf-8") as file:
